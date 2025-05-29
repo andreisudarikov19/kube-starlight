@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: starlight-docs
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: starlight-docs
+  template:
+    metadata:
+      labels:
+        app: starlight-docs
+    spec:
+      containers:
+      - name: docs
+        image: ghcr.io/andreisudarikov19/starlight-docs:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests: { cpu: "100m", memory: "128Mi" }
+          limits:   { cpu: "250m", memory: "256Mi" }
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: starlight-svc
+spec:
+  type: LoadBalancer      # or ClusterIP if you prefer an Ingress only
+  selector: { app: starlight-docs }
+  ports:
+  - port: 80
+    targetPort: 80
+
+---
+
+### expose to localhost for testing
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starlight-local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx          # adjust to your controller
+  rules:
+  - host: docs.localhost           # <── resolves to 127.0.0.1 automatically
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: starlight-svc
+            port:
+              number: 80
