@@ -1,0 +1,32 @@
+name: Build & publish Starlight image
+on:
+  push:
+    branches: [ main ]          # or tags: ['v*']
+permissions:                   # ← critical for GHCR
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # 1️⃣ Log in to ghcr.io
+    - name: Log in to GHCR
+      uses: docker/login-action@v3          # :contentReference[oaicite:1]{index=1}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # 2️⃣ Build & push (Buildx)
+    - name: Build and push
+      uses: docker/build-push-action@v5     # :contentReference[oaicite:2]{index=2}
+      with:
+        context: .                          # adjust if Dockerfile is in docs/
+        file: ./Dockerfile                  # idem
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/starlight-docs:latest
+          ghcr.io/${{ github.repository_owner }}/starlight-docs:${{ github.sha }}
