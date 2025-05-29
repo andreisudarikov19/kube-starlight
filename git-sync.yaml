@@ -39,7 +39,7 @@ spec:
           limits:
             cpu: 200m
             memory: 128Mi
-      - name: starlight
+      - name: alpine
         image: node:20-alpine
         workingDir: /workspace
         command: ["sh","-c","npm ci && npm run dev --host"]  # hot-reload
