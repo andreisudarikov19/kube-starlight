@@ -1,6 +1,6 @@
 # ───────────────────────  Build stage  ───────────────────────
 FROM node:20-alpine AS builder
-WORKDIR /kube-starlight/app
+WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
