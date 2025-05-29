@@ -1,0 +1,3 @@
+node_modules/
+.npm/          # optional cache dirs
+.pnpm-store/
