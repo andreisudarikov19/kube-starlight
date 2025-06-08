@@ -69,6 +69,7 @@ spec:
           npx astro build
 
           echo "Astro build complete. Holding container open for inspection."
+          astro telemetry disable
           tail -f /dev/null
         volumeMounts:
         - name: docs

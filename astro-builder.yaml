@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: astro-builder
+  namespace: docs-live
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: astro-builder
+  template:
+    metadata:
+      labels:
+        app: astro-builder
+    spec:
+      containers:
+      - name: astro-builder
+        image: node:22-bullseye
+        workingDir: /git/site
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          set -ex
+          echo "Starting Astro build..."
+          cd /git/site
+          npm install
+          npx astro build
+          echo "Astro build complete. Sleeping."
+          tail -f /dev/null
+        volumeMounts:
+        - name: docs
+          mountPath: /git
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      volumes:
+      - name: docs
+        persistentVolumeClaim:
+          claimName: starlight-docs-pvc

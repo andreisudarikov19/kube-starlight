@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-sync
+  namespace: docs-live
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-sync
+  template:
+    metadata:
+      labels:
+        app: git-sync
+    spec:
+      containers:
+      - name: git-sync
+        image: registry.k8s.io/git-sync/git-sync:v4.0.0
+        args:
+          - --repo=https://github.com/andreisudarikov19/starlight-doc-repo.git
+          - --branch=main
+          - --root=/git
+          - --dest=site
+          - --period=60s
+        volumeMounts:
+        - name: docs
+          mountPath: /git
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+      volumes:
+      - name: docs
+        persistentVolumeClaim:
+          claimName: starlight-docs-pvc
