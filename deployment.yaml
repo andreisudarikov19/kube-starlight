@@ -40,6 +40,9 @@ spec:
         args:
         - |
           apk add --no-cache git && \
+          echo "Waiting for git-sync to clone repo..."; \
+          while [ ! -f package.json ]; do sleep 2; done; \
+          echo "Found package.json, starting build loop."; \
           while true; do \
             npm install && npx astro build; \
             echo "Build done at $(date)"; \
