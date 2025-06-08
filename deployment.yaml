@@ -15,43 +15,73 @@ spec:
       volumes:
       - name: docs
         emptyDir: {}
-      containers:
+
+      # INIT CONTAINER: git-sync
+      initContainers:
       - name: git-sync
         image: registry.k8s.io/git-sync/git-sync:v4.0.0
-        env:
-        - name: GITSYNC_REPO
-          value: "https://github.com/andreisudarikov19/starlight-doc-repo.git"
-        - name: GIT_SYNC_BRANCH
-          value: "main"
-        - name: GIT_SYNC_ROOT
-          value: /git
-        - name: GIT_SYNC_DEST
-          value: site
-        - name: GIT_SYNC_PERIOD
-          value: "60s"
+        args:
+        - --repo=https://github.com/andreisudarikov19/starlight-doc-repo.git
+        - --branch=main
+        - --root=/git
+        - --dest=site
+        - --one-time
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
         volumeMounts:
         - name: docs
           mountPath: /git
 
+
+      # MAIN CONTAINER: Astro Builder
+      containers:
       - name: astro-builder
-        image: node:20-alpine
+        image: node:22-bullseye
         workingDir: /git/site
         command: ["/bin/sh", "-c"]
         args:
         - |
-          apk add --no-cache git && \
-          echo "Waiting for git-sync to clone repo..."; \
-          while [ ! -f package.json ]; do sleep 2; done; \
-          echo "Found package.json, starting build loop."; \
-          while true; do \
-            npm install && npx astro build; \
-            echo "Build done at $(date)"; \
-            sleep 60; \
-          done
+          set -ex
+          echo "Checking for cloned repo in /git/site..."
+          ls -lah /git/site || true
+
+          echo "Checking for package.json..."
+          if [ ! -f package.json ]; then
+            echo "package.json missing in /git/site"
+            exit 1
+          fi
+
+          echo "Installing dependencies..."
+          npm install
+
+          echo "Checking Astro config..."
+          if [ ! -f astro.config.mjs ]; then
+            echo "astro.config.mjs not found"
+            exit 1
+          fi
+
+          echo "Starting Astro build..."
+          npx astro build
+
+          echo "Astro build complete. Holding container open for inspection."
+          tail -f /dev/null
         volumeMounts:
         - name: docs
           mountPath: /git
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 
+      # STATIC SERVER: NGINX
       - name: static-server
         image: nginx:alpine
         volumeMounts:
@@ -60,3 +90,10 @@ spec:
           subPath: site/dist
         ports:
         - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
