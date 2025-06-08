@@ -1,59 +1,59 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: starlight-docs
+  name: starlight-live
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: starlight-docs
+      app: starlight-live
   template:
     metadata:
       labels:
-        app: starlight-docs
+        app: starlight-live
     spec:
-      containers:
+      volumes:
       - name: docs
-        image: ghcr.io/andreisudarikov19/starlight-docs:1.0.0
+        emptyDir: {}
+      containers:
+      - name: git-sync
+        image: registry.k8s.io/git-sync/git-sync:v4.0.0
+        env:
+        - name: GITSYNC_REPO
+          value: "https://github.com/andreisudarikov19/starlight-doc-repo.git"
+        - name: GIT_SYNC_BRANCH
+          value: "main"
+        - name: GIT_SYNC_ROOT
+          value: /git
+        - name: GIT_SYNC_DEST
+          value: site
+        - name: GIT_SYNC_PERIOD
+          value: "60s"
+        volumeMounts:
+        - name: docs
+          mountPath: /git
+
+      - name: astro-builder
+        image: node:20-alpine
+        workingDir: /git/site
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          apk add --no-cache git && \
+          while true; do \
+            npm install && npx astro build; \
+            echo "Build done at $(date)"; \
+            sleep 60; \
+          done
+        volumeMounts:
+        - name: docs
+          mountPath: /git
+
+      - name: static-server
+        image: nginx:alpine
+        volumeMounts:
+        - name: docs
+          mountPath: /usr/share/nginx/html
+          subPath: site/dist
         ports:
         - containerPort: 80
-        resources:
-          requests: { cpu: "100m", memory: "128Mi" }
-          limits:   { cpu: "250m", memory: "256Mi" }
-
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: starlight-svc
-spec:
-  type: LoadBalancer      # or ClusterIP if you prefer an Ingress only
-  selector: { app: starlight-docs }
-  ports:
-  - port: 80
-    targetPort: 80
-
----
-
-### expose to localhost for testing
-
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: starlight-local
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: nginx          # adjust to your controller
-  rules:
-  - host: docs.localhost           # <── resolves to 127.0.0.1 automatically
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: starlight-svc
-            port:
-              number: 80
