@@ -15,7 +15,9 @@ spec:
       volumes:
       - name: docs
         emptyDir: {}
-      containers:
+
+      # INIT CONTAINER: git-sync
+      initContainers:
       - name: git-sync
         image: registry.k8s.io/git-sync/git-sync:v4.0.0
         env:
@@ -27,31 +29,32 @@ spec:
           value: /git
         - name: GIT_SYNC_DEST
           value: site
-        - name: GIT_SYNC_PERIOD
-          value: "60s"
+        - name: GIT_SYNC_ONE_TIME
+          value: "true"
         volumeMounts:
         - name: docs
           mountPath: /git
 
+      # MAIN CONTAINER: Astro Builder
+      containers:
       - name: astro-builder
-        image: node:20-alpine
+        image: node:20-bullseye
         workingDir: /git/site
         command: ["/bin/sh", "-c"]
         args:
         - |
-          apk add --no-cache git && \
-          echo "Waiting for git-sync to clone repo..."; \
-          while [ ! -f package.json ]; do sleep 2; done; \
-          echo "Found package.json, starting build loop."; \
-          while true; do \
-            npm install && npx astro build; \
-            echo "Build done at $(date)"; \
-            sleep 60; \
-          done
+          set -ex
+          echo "Starting Astro build in /git/site..."
+          ls -l /git/site
+          npm install
+          npx astro build
+          echo "✅ Astro build complete. Holding container open for debug."
+          tail -f /dev/null
         volumeMounts:
         - name: docs
           mountPath: /git
 
+      # STATIC SERVER: NGINX
       - name: static-server
         image: nginx:alpine
         volumeMounts:
