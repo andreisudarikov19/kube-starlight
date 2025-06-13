@@ -20,13 +20,24 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
         - |
-          set -ex
-          echo "Starting Astro build..."
           cd /git/site
-          npm install
-          npx astro build
-          echo "Astro build complete. Sleeping."
-          tail -f /dev/null
+
+          last_hash=""
+
+          while true; do
+            new_hash=$(tar --exclude='.git' -cf - . | sha1sum | awk '{print $1}')
+
+            if [ "$new_hash" != "$last_hash" ]; then
+              echo "Change detected, rebuilding site..."
+              npm install
+              npx astro build
+              last_hash=$new_hash
+            else
+              echo "No change detected."
+            fi
+
+            sleep 10
+          done
         volumeMounts:
         - name: docs
           mountPath: /git
