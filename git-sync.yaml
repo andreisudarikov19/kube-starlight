@@ -10,6 +10,9 @@ spec:
       app: git-sync
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
       labels:
         app: git-sync
     spec:
@@ -22,6 +25,10 @@ spec:
           - --root=/git
           - --dest=site
           - --period=60s
+          - --http-metrics=:8080
+        ports:
+        - containerPort: 8080
+          name: metrics
         volumeMounts:
         - name: docs
           mountPath: /git
