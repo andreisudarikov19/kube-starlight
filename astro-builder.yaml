@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: astro-builder
+  namespace: docs-live
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: astro-builder
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+      labels:
+        app: astro-builder
+    spec:
+      containers:
+      - name: astro-builder
+        image: node:22-bullseye
+        workingDir: /git/site
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          cd /git/site
+
+          last_hash=""
+
+          while true; do
+            new_hash=$(tar --exclude='.git' -cf - . | sha1sum | awk '{print $1}')
+
+            if [ "$new_hash" != "$last_hash" ]; then
+              echo "Change detected, rebuilding site..."
+              npm install
+              npx astro build
+              last_hash=$new_hash
+            else
+              echo "No change detected."
+            fi
+
+            sleep 10
+          done
+        volumeMounts:
+        - name: docs
+          mountPath: /git
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      - name: node-exporter
+        image: prom/node-exporter
+        args:
+          - --path.rootfs=/host
+        ports:
+        - containerPort: 9100
+          name: metrics
+        volumeMounts:
+        - name: rootfs
+          mountPath: /host
+          readOnly: true
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      volumes:
+      - name: docs
+        persistentVolumeClaim:
+          claimName: starlight-docs-pvc
+      - name: rootfs
+        hostPath:
+          path: /
+          type: Directory

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: static-server-nginx-conf
+  namespace: docs-live
+data:
+  default.conf: |
+    server {
+        listen 80;
+        root /usr/share/nginx/html/site/dist;
+
+        location / {
+            index index.html;
+            try_files $uri $uri/ =404;
+        }
+
+        location /status {
+            stub_status;
+            allow 127.0.0.1;
+            deny all;
+        }
+    }
