@@ -20,7 +20,7 @@ spec:
       - name: static-server
         image: nginx:alpine
         ports:
-        - containerPort: 80
+        - containerPort: 4775
         volumeMounts:
         - name: docs
           mountPath: /usr/share/nginx/html
